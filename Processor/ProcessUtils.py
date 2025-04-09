@@ -350,11 +350,11 @@ if __name__ == "__main__":
     """
     仅供文件导入测试
     """
-    encoded = encode_midi("MidiFiles/Melody.mid")
+    encoded = encode_midi("TrainFiles/Input/Melody.mid")
     print(encoded)
-    decided = decode_midi(encoded, file_path="MidiFiles/processor_test.mid")
+    decided = decode_midi(encoded, file_path="TrainFiles/Input/processor_test.mid")
 
-    ins = pretty_midi.PrettyMIDI("MidiFiles/Melody.mid")
+    ins = pretty_midi.PrettyMIDI("TrainFiles/Input/Melody.mid")
     print(ins)
     print(ins.instruments[0])
     for i in ins.instruments:
