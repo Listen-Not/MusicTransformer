@@ -5,7 +5,7 @@ from glob import glob
 from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import Config
+import config
 from Processor.ProcessUtils import encode_midi
 
 
@@ -34,4 +34,4 @@ def preprocess_all_midi_files(midi_dir: str, save_dir: str):
 
 
 if __name__ == "__main__":
-    preprocess_all_midi_files(Config.MIDI_DIR, Config.SAVE_DIR)
+    preprocess_all_midi_files(config.MIDI_DIR, config.SAVE_DIR)

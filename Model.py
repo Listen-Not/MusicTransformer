@@ -5,8 +5,8 @@ import torch.nn.functional as nnfunc
 # from torchviz import make_dot
 
 # 本地模块
-import Config
-import Utils
+import config
+import utils
 
 
 class Embeddings(nn.Module):
@@ -42,7 +42,7 @@ class PositionalEncoding(nn.Module):
         torch.Tensor: 加上位置编码后的张量，形状为 (batch_size, seq_len, d_model)。
     """
 
-    def __init__(self, d_model: int, seq_len: int = Config.SEQ_LEN) -> None:
+    def __init__(self, d_model: int, seq_len: int = config.SEQ_LEN) -> None:
         super().__init__()
         self.pe = torch.zeros(seq_len, d_model)
         position = torch.arange(0, seq_len).unsqueeze(1)
@@ -66,7 +66,7 @@ class MultiHeadAttentionWithRelativePosition(nn.Module):
         self.k_linear = nn.Linear(d_model, d_model)
         self.v_linear = nn.Linear(d_model, d_model)
         self.out_linear = nn.Linear(d_model, d_model)
-        self.e_r = nn.Parameter(torch.randn(Config.MAX_SEQ_LEN, self.head_dim), requires_grad=False)
+        self.e_r = nn.Parameter(torch.randn(config.MAX_SEQ_LEN, self.head_dim), requires_grad=False)
         self.dropout = nn.Dropout(dropout)
         # 输入检查
         assert self.head_dim * num_heads == d_model, f"词向量维度 {d_model} 应该被头数 {num_heads} 整除"
@@ -81,9 +81,9 @@ class MultiHeadAttentionWithRelativePosition(nn.Module):
 
         # 计算相对位置编码
         q_len = q.size(2)
-        e_sub = self.e_r[max(0, Config.MAX_SEQ_LEN - q_len) :, :]
+        e_sub = self.e_r[max(0, config.MAX_SEQ_LEN - q_len) :, :]
         qe_relative = torch.einsum("bhqd,kd->bhqk", q, e_sub)
-        position_mask = Utils.mask_relative_position(qe_relative)
+        position_mask = utils.mask_relative_position(qe_relative)
         qe_relative = qe_relative * position_mask.unsqueeze(0).unsqueeze(0)
         S_rel = self.skew(qe_relative)
 
@@ -162,9 +162,7 @@ class Transformer(nn.Module):
         dropout=0.1,
     ):
         super().__init__()
-        # self.encoder_embed = nn.Sequential(Embeddings(d_model, src_vocab_size), PositionalEncoding(d_model))
         self.encoder_embed = Embeddings(d_model, src_vocab_size)
-        # self.decoder_embed = nn.Sequential(Embeddings(d_model, tgt_vocab_size), PositionalEncoding(d_model))
         self.decoder_embed = Embeddings(d_model, tgt_vocab_size)
         self.encoder_layers = nn.ModuleList(
             [EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]

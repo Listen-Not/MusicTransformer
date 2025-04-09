@@ -1,5 +1,4 @@
 import os
-import glob
 
 "文件路径"
 # 项目根目录
