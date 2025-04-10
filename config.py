@@ -17,3 +17,7 @@ EPOCHS = 5
 MAX_SEQ_LEN = 256
 # 乐句长度
 SEQ_LEN = 32
+
+"输入数据设置长度"
+# 总事件个数
+PAD_TOKEN = 388

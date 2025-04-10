@@ -110,23 +110,32 @@ class MultiHeadAttentionWithRelativePosition(nn.Module):
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         super().__init__()
+        # 多头注意力模块，带相对位置编码
         self.self_attn = MultiHeadAttentionWithRelativePosition(d_model, num_heads, dropout)
-        # ffn的目的？
-        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model))
-        # layer Norm 的目的？
+
+        # 前馈网络：两层线性+GELU激活
+        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Linear(d_ff, d_model))
+
+        # 层归一化与 Dropout
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, mask=None):
+        # 自注意力 + 残差连接 + LayerNorm
         attn_output = self.self_attn(x, x, x, mask)
-        x = self.norm1(x + self.dropout(attn_output))
+        x = self.norm1(x + self.dropout1(attn_output))
+
+        # 前馈网络 + 残差连接 + LayerNorm
         ff_output = self.feed_forward(x)
-        x = self.norm2(x + self.dropout(ff_output))
+        x = self.norm2(x + self.dropout2(ff_output))
         return x
 
 
 class DecoderLayer(nn.Module):
+    "暂时没用"
+
     def __init__(self, d_model, num_heads, d_ff, dropout=0.1):
         super().__init__()
         self.self_attn = MultiHeadAttentionWithRelativePosition(d_model, num_heads, dropout)
@@ -150,37 +159,60 @@ class DecoderLayer(nn.Module):
         return x
 
 
-class Transformer(nn.Module):
-    def __init__(
-        self,
-        src_vocab_size,
-        tgt_vocab_size,
-        d_model=512,
-        num_heads=6,
-        num_layers=6,
-        d_ff=2048,
-        dropout=0.1,
-    ):
+class Encoder(nn.Module):
+    def __init__(self, num_layers, d_model, input_vocab_size, seq_len, dropout=0.1):
         super().__init__()
-        self.encoder_embed = Embeddings(d_model, src_vocab_size)
-        self.decoder_embed = Embeddings(d_model, tgt_vocab_size)
+        self.d_model = d_model
+        self.num_layers = num_layers
+
+        # 词嵌入模块
+        self.embedding = Embeddings(d_model=d_model, vocab_size=input_vocab_size)
+
+        # 位置编码模块
+        self.pos_encoding = PositionalEncoding(d_model=d_model, seq_len=seq_len)
+
+        # 多层编码器层
         self.encoder_layers = nn.ModuleList(
-            [EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]
+            [
+                EncoderLayer(d_model, num_heads=d_model // 64, d_ff=d_model // 2, dropout=dropout)
+                for _ in range(num_layers)
+            ]
         )
-        self.decoder_layers = nn.ModuleList(
-            [DecoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]
-        )
-        self.final_linear = nn.Linear(d_model, tgt_vocab_size)
 
-    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
-        # 编码器
-        enc_output = self.encoder_embed(src)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask=None):
+        # 词嵌入 + 位置编码 + Dropout
+        x = self.embedding(x.long())  # (batch_size, seq_len) -> (batch_size, seq_len, d_model)
+        x = self.pos_encoding(x)  # 添加位置编码
+        x = self.dropout(x)
+
+        # 通过多个编码层
         for layer in self.encoder_layers:
-            enc_output = layer(enc_output, src_mask)
+            x = layer(x, mask)
 
-        # 解码器
-        dec_output = self.decoder_embed(tgt)
-        for layer in self.decoder_layers:
-            dec_output = layer(dec_output, enc_output, src_mask, tgt_mask)
+        return x  # 输出形状: (batch_size, seq_len, d_model)
 
-        return self.final_linear(dec_output)
+
+class MusicTransformer(torch.nn.Module):
+    def __init__(self, embedding_dim=256, vocab_size=388 + 2, num_layer=6, max_seq=2048, dropout=0.1):
+        super().__init__()
+        self.max_seq = max_seq
+        self.num_layer = num_layer
+        self.embedding_dim = embedding_dim
+        self.vocab_size = vocab_size
+
+        self.Decoder = Encoder(
+            num_layers=self.num_layer,
+            d_model=self.embedding_dim,
+            input_vocab_size=self.vocab_size,
+            max_len=max_seq,
+            rate=dropout,
+        )
+        self.fc = torch.nn.Linear(self.embedding_dim, self.vocab_size)
+
+    def forward(self, x, length=None):
+        if self.training:
+            mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
+            decoder = self.Decoder(x, mask)
+            return self.fc(decoder).contiguous()

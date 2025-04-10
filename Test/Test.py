@@ -1,4 +1,4 @@
-import Model 
+import model 
 import matplotlib.pyplot as plt
 import math
 

@@ -2,12 +2,12 @@ from matplotlib import pyplot as plt
 import torch
 
 # 验证不同序列长度时的行为
-import Model
+import model
 
 if __name__ == "__main__":
     q = torch.randn(2, 10, 512)  # q_len=10
     k = torch.randn(2, 10, 512)  # k_len=10
-    attn = Model.MultiHeadAttentionWithRelativePosition(d_model=512, num_heads=8)
+    attn = model.MultiHeadAttentionWithRelativePosition(d_model=512, num_heads=8)
     output, S_rel, qe_relative = attn(q, k, k)  # 应触发skew中的ValueError
 
     # 创建一个包含1行2列子图的画布
