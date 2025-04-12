@@ -7,7 +7,7 @@ from glob import glob
 
 
 class MIDIDataset(Dataset):
-    def __init__(self, dir_path, split_ratio=(0.8, 0.1, 0.1), mode="train"):
+    def __init__(self, dir_path, split_ratio=(0.7, 0.2, 0.1), mode="train"):
         """
         初始化 MIDI 数据集
         :param dir_path: 存放 .pickle 文件的路径

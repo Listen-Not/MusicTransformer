@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import config
-from Processor.ProcessUtils import encode_midi
+from processor.processUtils import encode_midi
 
 
 def preprocess_midi(file_path: str):
@@ -30,7 +30,7 @@ def preprocess_all_midi_files(midi_dir: str, save_dir: str):
             with open(output_path, "wb") as f:
                 pickle.dump(encoded_data, f)
         except Exception as e:
-            print(f"\n[!] 处理文件出错: {midi_path}\n    错误信息: {e}")
+            tqdm.write(f"\n[!] 处理文件出错: {midi_path}\n    错误信息: {e}")
 
 
 if __name__ == "__main__":

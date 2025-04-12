@@ -1,7 +1,10 @@
 from matplotlib import pyplot as plt
 import torch
+import os
+import sys
 
 # 验证不同序列长度时的行为
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import model
 
 if __name__ == "__main__":

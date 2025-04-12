@@ -5,7 +5,7 @@ import math
 # 初始化嵌入层
 vocab_size = 100  # 假设词汇表大小为 100
 d_model = 64      # 嵌入维度为 64
-embedding_layer = Model.Embeddings(d_model, vocab_size)
+embedding_layer = model.Embeddings(d_model, vocab_size)
 
 # 提取嵌入向量
 embeddings = embedding_layer.lut.weight.detach().numpy()  # (vocab_size, d_model)
@@ -29,5 +29,5 @@ plt.grid(True)
 plt.show()
 
 
-model = Model.PositionalEncoding(d_model=512,max_len=30)
+model = model.PositionalEncoding(d_model=512,max_len=30)
 print(model.pe.requires_grad)  # 输出: False

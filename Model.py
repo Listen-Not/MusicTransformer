@@ -44,15 +44,15 @@ class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model: int, seq_len: int = config.SEQ_LEN) -> None:
         super().__init__()
-        self.pe = torch.zeros(seq_len, d_model)
         position = torch.arange(0, seq_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
+
+        self.pe = torch.zeros(seq_len, d_model)
         self.pe[:, 0::2] = torch.sin(position * div_term)
         self.pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer("pe", self.pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.pe[: x.size(1)]
+        return x + self.pe[: x.size(1)].to(x.device, dtype=x.dtype)
 
 
 class MultiHeadAttentionWithRelativePosition(nn.Module):
@@ -84,7 +84,9 @@ class MultiHeadAttentionWithRelativePosition(nn.Module):
         e_sub = self.e_r[max(0, config.MAX_SEQ_LEN - q_len) :, :]
         qe_relative = torch.einsum("bhqd,kd->bhqk", q, e_sub)
         position_mask = utils.mask_relative_position(qe_relative)
-        qe_relative = qe_relative * position_mask.unsqueeze(0).unsqueeze(0)
+        qe_relative = qe_relative * position_mask.unsqueeze(0).unsqueeze(0).to(
+            qe_relative.device, dtype=qe_relative.dtype
+        )
         S_rel = self.skew(qe_relative)
 
         # 按batch和sequence分批次计算
@@ -124,12 +126,12 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x, mask=None):
         # 自注意力 + 残差连接 + LayerNorm
-        attn_output = self.self_attn(x, x, x, mask)
+        attn_output = self.self_attn(x, x, x, mask)[0]
         x = self.norm1(x + self.dropout1(attn_output))
 
         # 前馈网络 + 残差连接 + LayerNorm
         ff_output = self.feed_forward(x)
-        x = self.norm2(x + self.dropout2(ff_output))
+        x = self.norm2(x + self.dropout2(ff_output)[0])
         return x
 
 
@@ -195,7 +197,7 @@ class Encoder(nn.Module):
 
 
 class MusicTransformer(torch.nn.Module):
-    def __init__(self, embedding_dim=256, vocab_size=388 + 2, num_layer=6, max_seq=2048, dropout=0.1):
+    def __init__(self, embedding_dim=256, vocab_size=388 + 3, num_layer=6, max_seq=1024, dropout=0.1):
         super().__init__()
         self.max_seq = max_seq
         self.num_layer = num_layer
@@ -206,13 +208,13 @@ class MusicTransformer(torch.nn.Module):
             num_layers=self.num_layer,
             d_model=self.embedding_dim,
             input_vocab_size=self.vocab_size,
-            max_len=max_seq,
-            rate=dropout,
+            seq_len=max_seq,
+            dropout=dropout,
         )
         self.fc = torch.nn.Linear(self.embedding_dim, self.vocab_size)
 
     def forward(self, x, length=None):
         if self.training:
-            mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
-            decoder = self.Decoder(x, mask)
+            # mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
+            decoder = self.Decoder(x, mask=None)
             return self.fc(decoder).contiguous()
