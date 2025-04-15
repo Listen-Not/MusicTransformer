@@ -7,7 +7,7 @@ from glob import glob
 
 
 class MIDIDataset(Dataset):
-    def __init__(self, dir_path, split_ratio=(0.7, 0.2, 0.1), mode="train"):
+    def __init__(self, dir_path, split_ratio=(0.8, 0.1, 0.1), mode="train"):
         """
         初始化 MIDI 数据集
         :param dir_path: 存放 .pickle 文件的路径
@@ -37,23 +37,31 @@ class MIDIDataset(Dataset):
 
     def __repr__(self):
         return f'<MIDIDataset mode="{self.mode}", files={len(self.file_dict[self.mode])}>'
-
+    
     def _get_seq(self, fname, max_length=None):
-        with open(fname, "rb") as f:
-            data = pickle.load(f)
-
+        try:
+            with open(fname, 'rb') as f:
+                data = pickle.load(f)
+        except Exception as e:
+            print(f"[跳过] 无法读取 {fname}，原因：{e}")
+            return None    
         if max_length is not None:
             if max_length <= len(data):
-                start = random.randint(0, len(data) - max_length)
-                return data[start : start + max_length]
+                start = random.randrange(0,len(data) - max_length)
+                data = data[start:start + max_length]
             else:
-                raise IndexError("数据长度不足指定长度")
-        return data
+                return None  # 数据太短，跳过
+        return data    
+    
+    def batch(self, batch_size, length, mode='train'):
+        batch_data = []
+        while len(batch_data) < batch_size:
+            fname = random.choice(self.file_dict[mode])
+            seq = self._get_seq(fname, length)
+            if seq is not None:
+                batch_data.append(seq)
 
-    def batch(self, batch_size, length):
-        batch_files = random.sample(self.file_dict[self.mode], k=batch_size)
-        batch_data = [self._get_seq(f, length) for f in batch_files]
-        return np.array(batch_data)
+        return np.array(batch_data)    
 
     def seq2seq_batch(self, batch_size, length):
         data = self.batch(batch_size, length * 2)

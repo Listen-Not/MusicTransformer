@@ -115,12 +115,12 @@ class EncoderLayer(nn.Module):
         # 多头注意力模块，带相对位置编码
         self.self_attn = MultiHeadAttentionWithRelativePosition(d_model, num_heads, dropout)
 
-        # 前馈网络：两层线性+GELU激活
-        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.GELU(), nn.Linear(d_ff, d_model))
+        # 前馈网络：两层线性+relu激活
+        self.feed_forward = nn.Sequential(nn.Linear(d_model, d_ff), nn.ReLU(), nn.Linear(d_ff, d_model))
 
         # 层归一化与 Dropout
-        self.norm1 = nn.LayerNorm(d_model)
-        self.norm2 = nn.LayerNorm(d_model)
+        self.norm1 = nn.LayerNorm(d_model, eps=1e-6)
+        self.norm2 = nn.LayerNorm(d_model, eps=1e-6)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
@@ -131,7 +131,7 @@ class EncoderLayer(nn.Module):
 
         # 前馈网络 + 残差连接 + LayerNorm
         ff_output = self.feed_forward(x)
-        x = self.norm2(x + self.dropout2(ff_output)[0])
+        x = self.norm2(x + self.dropout2(ff_output))
         return x
 
 
@@ -168,7 +168,7 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
 
         # 词嵌入模块
-        self.embedding = Embeddings(d_model=d_model, vocab_size=input_vocab_size)
+        self.embedding = nn.Embedding(num_embeddings=input_vocab_size, embedding_dim=d_model)
 
         # 位置编码模块
         self.pos_encoding = PositionalEncoding(d_model=d_model, seq_len=seq_len)
@@ -186,6 +186,7 @@ class Encoder(nn.Module):
     def forward(self, x, mask=None):
         # 词嵌入 + 位置编码 + Dropout
         x = self.embedding(x.long())  # (batch_size, seq_len) -> (batch_size, seq_len, d_model)
+        x *= math.sqrt(self.d_model)
         x = self.pos_encoding(x)  # 添加位置编码
         x = self.dropout(x)
 
@@ -197,7 +198,7 @@ class Encoder(nn.Module):
 
 
 class MusicTransformer(torch.nn.Module):
-    def __init__(self, embedding_dim=256, vocab_size=388 + 3, num_layer=6, max_seq=1024, dropout=0.1):
+    def __init__(self, embedding_dim=256, vocab_size=388 + 2, num_layer=6, max_seq=1024, dropout=0.1):
         super().__init__()
         self.max_seq = max_seq
         self.num_layer = num_layer
@@ -215,6 +216,6 @@ class MusicTransformer(torch.nn.Module):
 
     def forward(self, x, length=None):
         if self.training:
-            # mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
-            decoder = self.Decoder(x, mask=None)
+            _, _, look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
+            decoder = self.Decoder(x, mask=look_ahead_mask)
             return self.fc(decoder).contiguous()
