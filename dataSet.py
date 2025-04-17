@@ -67,8 +67,8 @@ class MIDIDataset(Dataset):
         data = self.batch(batch_size, length * 2)
         return data[:, :length], data[:, length:]
 
-    def slide_seq2seq_batch(self, batch_size, length):
-        data = self.batch(batch_size, length + 1)
+    def slide_seq2seq_batch(self, batch_size, length,mode='train'):
+        data = self.batch(batch_size, length + 1,mode=mode)
         return data[:, :-1], data[:, 1:]
 
     def smallest_encoder_batch(self, batch_size, length):

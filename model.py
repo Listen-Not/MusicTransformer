@@ -2,7 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as nnfunc
-# from torchviz import make_dot
 
 # 本地模块
 import config
@@ -11,14 +10,7 @@ import utils
 
 class Embeddings(nn.Module):
     """
-    生成所有输入词汇的词向量，并通过除以词向量维数的平方根进行缩放。
-
-    参数:
-        vocab_size (int): 词汇表的总大小。
-        d_model (int): 词向量的维度。
-
-    返回:
-        torch.Tensor: 输入序列对应的词向量张量，形状为 (batch_size, seq_len, d_model)。
+    生成所有输入词汇的词向量，并通过乘词向量维数的平方根进行缩放。
     """
 
     def __init__(self, d_model: int, vocab_size: int):
@@ -33,16 +25,9 @@ class Embeddings(nn.Module):
 class PositionalEncoding(nn.Module):
     """
     绝对位置编码，每个词向量生成对应的位置编码，绝对位置向量不参与学习。
-
-    参数:
-        seq_len (int): 一句话的词向量个数。
-        d_model (int): 词向量的维度。
-
-    返回:
-        torch.Tensor: 加上位置编码后的张量，形状为 (batch_size, seq_len, d_model)。
     """
 
-    def __init__(self, d_model: int, seq_len: int = config.SEQ_LEN) -> None:
+    def __init__(self, d_model: int, seq_len: int = config.SEQ_LEN):
         super().__init__()
         position = torch.arange(0, seq_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model))
@@ -216,6 +201,6 @@ class MusicTransformer(torch.nn.Module):
 
     def forward(self, x, length=None):
         if self.training:
-            _, _, look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)
+            look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)[2]
             decoder = self.Decoder(x, mask=look_ahead_mask)
             return self.fc(decoder).contiguous()
