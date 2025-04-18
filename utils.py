@@ -48,11 +48,11 @@ def get_masked_with_pad_tensor(
     if trg is not None:
         # look-ahead mask: (1, 1, size, size)
         seq_mask = torch.triu(torch.ones((size, size), dtype=torch.bool, device=trg.device), diagonal=1)
-        look_ahead_mask = seq_mask.unsqueeze(0).unsqueeze(0)
+        look_ahead_mask = ~seq_mask.unsqueeze(0).unsqueeze(0)
 
         # dec_pad_mask: (batch_size, 1, 1, seq_len)
         dec_pad_mask = torch.isin(trg, pad_values).unsqueeze(1).unsqueeze(2)
-        look_ahead_mask = look_ahead_mask | dec_pad_mask[:, :, :, :size]
+        look_ahead_mask = look_ahead_mask & ~dec_pad_mask[:, :, :, :size]
 
     return src_mask, trg_mask, look_ahead_mask
 

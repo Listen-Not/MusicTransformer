@@ -1,4 +1,3 @@
-import os
 import dataSet
 import model
 import config
@@ -11,8 +10,8 @@ import torch
 utils.set_seed(42)
 
 "数据集预处理"
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+config.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(config.DEVICE)
 
 dataset = dataSet.MIDIDataset(config.SAVE_DIR)
 print(dataset)
@@ -24,7 +23,7 @@ music_model = model.MusicTransformer(
     num_layer=config.NUM_LAYERS,
     max_seq=config.MAX_SEQ_LEN,
     dropout=config.DROP_OUT,
-).to(device)
+).to(config.DEVICE)
 print(music_model)
 
 
@@ -35,7 +34,7 @@ scheduler = tweak.CustomLRScheduler(optimizer, d_model=config.EMBEDDING_DIM)
 loss_func = tweak.SmoothCrossEntropyLoss(
     label_smoothing=config.LABEL_SMOOTHING, vocab_size=config.VOCAB_SIZE, ignore_index=config.PAD_TOKEN
 )
-accuracy_func = tweak.CategoricalAccuracy(config.VOCAB_SIZE).to(device)
+accuracy_func = tweak.CategoricalAccuracy(config.VOCAB_SIZE).to(config.DEVICE)
 losses = []  # 用于存储每个 epoch 的损失值
 
 "开训"
@@ -48,15 +47,15 @@ for epoch in range(config.EPOCHS):
 
         try:
             # 通过自定义的 slide_seq2seq_batch 方法获取批次
-            batch_x, batch_y = dataset.slide_seq2seq_batch(config.BATCH_SIZE, config.MAX_SEQ_LEN)
-            batch_x = torch.from_numpy(batch_x).contiguous().to(device, non_blocking=True, dtype=torch.long)
-            batch_y = torch.from_numpy(batch_y).contiguous().to(device, non_blocking=True, dtype=torch.long)
+            batch_x, batch_y = dataset.slide_seq2seq_batch(config.BATCH_SIZE, config.SEQ_LEN, predict=config.SLIDE_LEN)
+            batch_x = torch.from_numpy(batch_x).contiguous().to(config.DEVICE, non_blocking=True, dtype=torch.long)
+            batch_y = torch.from_numpy(batch_y).contiguous().to(config.DEVICE, non_blocking=True, dtype=torch.long)
         except IndexError:
             continue  # 如果没有足够的数据则跳过当前批次
 
         music_model.train()
 
-        output = music_model.forward(batch_x)  # 模型前向传播
+        output = music_model(batch_x)  # 模型前向传播
 
         loss = loss_func(output, batch_y)  # 计算损失
         loss.backward()
@@ -70,15 +69,15 @@ for epoch in range(config.EPOCHS):
     if config.DEBUG:
         music_model.eval()
         try:
-            batch_x, batch_y = dataset.slide_seq2seq_batch(config.BATCH_SIZE, config.MAX_SEQ_LEN, mode="eval")
-            batch_x = torch.from_numpy(batch_x).contiguous().to(device, non_blocking=True, dtype=torch.long)
-            batch_y = torch.from_numpy(batch_y).contiguous().to(device, non_blocking=True, dtype=torch.long)
+            batch_x, batch_y = dataset.slide_seq2seq_batch(config.BATCH_SIZE, config.MAX_SEQ_LEN, predict=config.SLIDE_LEN, mode="eval")
+            batch_x = torch.from_numpy(batch_x).contiguous().to(config.DEVICE, non_blocking=True, dtype=torch.long)
+            batch_y = torch.from_numpy(batch_y).contiguous().to(config.DEVICE, non_blocking=True, dtype=torch.long)
         except IndexError:
-            continue  
+            continue
         with torch.no_grad():
-            prediction = music_model.forward(batch_x)
+            prediction = music_model(batch_x)
             accuracy = accuracy_func(prediction, batch_y)
             print(f"[Loss]: {loss.item():.4f} [Accuracy]: {accuracy.item():.4f} (Time: {end_time - start_time:.4f}s)")
 
-if False:
+if True:
     torch.save(music_model.state_dict(), "music_model.pth")

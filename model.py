@@ -208,3 +208,40 @@ class MusicTransformer(torch.nn.Module):
             look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)[2]
             decoder = self.Decoder(x, mask=look_ahead_mask)
             return self.fc(decoder).contiguous()
+
+    def generate(self, start_sequence: torch.Tensor, target_length: int):
+        """
+        根据给定的初始序列生成指定长度的序列。
+
+        :param start_sequence: 初始的输入序列（tensor）。
+        :param target_length: 目标生成的序列长度。
+        :param device: 使用的设备 ('cpu' 或 'cuda')。
+        :return: 生成的序列。
+        """
+        # 设置模型为评估模式
+        self.eval()
+
+        # 初始化生成的序列
+        generated_sequence = start_sequence.clone()
+        current_input = start_sequence
+
+        for _ in range(target_length - start_sequence.size(1)):  # 直到生成到目标长度
+            # 通过模型进行前向传播
+            look_ahead_mask = utils.get_masked_with_pad_tensor(
+                self.max_seq, current_input, current_input, config.PAD_TOKEN
+            )[2]
+            decoder_output = self.Decoder(current_input, mask=look_ahead_mask)
+
+            # 获取模型的输出 logits
+            logits = self.fc(decoder_output)
+
+            # 获取概率最大的 token (贪心策略)
+            next_token = torch.argmax(logits[:, -1, :], dim=-1).unsqueeze(1)  # 预测下一个 token
+
+            # 将预测的 token 添加到生成序列中
+            generated_sequence = torch.cat((generated_sequence, next_token), dim=1)
+
+            # 更新 current_input 为当前生成的序列（将最后一个 token 作为下次预测的输入）
+            current_input = generated_sequence
+
+        return generated_sequence

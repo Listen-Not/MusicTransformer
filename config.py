@@ -13,6 +13,8 @@ CHECK_ROOT = "Check"
 CHECK_DIR = os.path.join(CHECK_ROOT, REPO_NAME)
 
 "默认训练参数"
+# 训练设备
+DEVICE = "cpu"
 # 单次训练批数
 BATCH_SIZE = 2
 # 训练轮数
@@ -35,6 +37,10 @@ PAD_TOKEN = 388
 MAX_SEQ_LEN = 2048
 # 乐句长度
 SEQ_LEN = 2048
+# 生成乐句长度
+TARGET_LEN = 4096
+# 滑动窗口长度
+SLIDE_LEN = 1
 # 词向量维度
 EMBEDDING_DIM = 256
 # 遗忘率
