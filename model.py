@@ -200,7 +200,11 @@ class MusicTransformer(torch.nn.Module):
         self.fc = torch.nn.Linear(self.embedding_dim, self.vocab_size)
 
     def forward(self, x, length=None):
-        if self.training:
+        if self.training is False:
+            look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)[2]
+            decoder = self.Decoder(x, mask=look_ahead_mask)
+            return self.fc(decoder).contiguous()
+        else:
             look_ahead_mask = utils.get_masked_with_pad_tensor(self.max_seq, x, x, config.PAD_TOKEN)[2]
             decoder = self.Decoder(x, mask=look_ahead_mask)
             return self.fc(decoder).contiguous()

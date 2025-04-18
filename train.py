@@ -35,6 +35,7 @@ scheduler = tweak.CustomLRScheduler(optimizer, d_model=config.EMBEDDING_DIM)
 loss_func = tweak.SmoothCrossEntropyLoss(
     label_smoothing=config.LABEL_SMOOTHING, vocab_size=config.VOCAB_SIZE, ignore_index=config.PAD_TOKEN
 )
+accuracy_func = tweak.CategoricalAccuracy(config.VOCAB_SIZE).to(device)
 losses = []  # 用于存储每个 epoch 的损失值
 
 "开训"
@@ -57,7 +58,7 @@ for epoch in range(config.EPOCHS):
 
         output = music_model.forward(batch_x)  # 模型前向传播
 
-        loss = loss_func(output.view(-1, output.size(2)), batch_y.view(-1))  # 计算损失
+        loss = loss_func(output, batch_y)  # 计算损失
         loss.backward()
 
         optimizer.step()  # 迭代，学习率优化
@@ -67,7 +68,17 @@ for epoch in range(config.EPOCHS):
 
     end_time = time.time()
     if config.DEBUG:
-        print(f"[Loss]: {loss.item():.4f} (Time: {end_time - start_time:.4f}s)")
+        music_model.eval()
+        try:
+            batch_x, batch_y = dataset.slide_seq2seq_batch(config.BATCH_SIZE, config.MAX_SEQ_LEN, mode="eval")
+            batch_x = torch.from_numpy(batch_x).contiguous().to(device, non_blocking=True, dtype=torch.long)
+            batch_y = torch.from_numpy(batch_y).contiguous().to(device, non_blocking=True, dtype=torch.long)
+        except IndexError:
+            continue  
+        with torch.no_grad():
+            prediction = music_model.forward(batch_x)
+            accuracy = accuracy_func(prediction, batch_y)
+            print(f"[Loss]: {loss.item():.4f} [Accuracy]: {accuracy.item():.4f} (Time: {end_time - start_time:.4f}s)")
 
 if False:
     torch.save(music_model.state_dict(), "music_model.pth")

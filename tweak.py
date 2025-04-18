@@ -1,7 +1,9 @@
 import torch
 import torch.nn.functional as nnfunc
+from torchmetrics.classification import MulticlassAccuracy
 from torch.nn.modules.loss import _Loss
 from torch.optim.lr_scheduler import _LRScheduler
+
 
 class CustomLRScheduler(_LRScheduler):
     def __init__(self, optimizer, d_model, warmup_steps=4000, last_epoch=-1):
@@ -11,10 +13,11 @@ class CustomLRScheduler(_LRScheduler):
 
     def get_lr(self):
         step = max(self.last_epoch + 1, 1)
-        scale = self.d_model ** -0.5
-        warmup_factor = min(step ** -0.5, step * (self.warmup_steps ** -1.5))
+        scale = self.d_model**-0.5
+        warmup_factor = min(step**-0.5, step * (self.warmup_steps**-1.5))
         absolute_lr = scale * warmup_factor
         return [absolute_lr for _ in self.optimizer.param_groups]
+
 
 class SmoothCrossEntropyLoss(_Loss):
     """
@@ -35,12 +38,14 @@ class SmoothCrossEntropyLoss(_Loss):
     def forward(self, logits, target):
         """
         参数：
-            logits: 模型输出的原始分数，形状为 [B * T, V]
-            target: 标签索引，形状为 [B * T]
+            logits: 模型输出的原始分数，形状为 [B, T, V]
+            target: 标签索引，形状为 [B, T]
         返回：
             单个标量损失值
         """
         # 忽略 padding 标签的部分
+        logits = logits.view(-1, logits.size(2))
+        target = target.view(-1)
         mask = target != self.ignore_index
         logits = logits[mask]
         target = target[mask]
@@ -68,4 +73,19 @@ class SmoothCrossEntropyLoss(_Loss):
         else:
             return loss  # 不进行归约，返回每个样本的 loss
 
-   
+
+class CategoricalAccuracy(MulticlassAccuracy):
+    """
+    用于多分类（logits）输入的准确率计算。
+    输入形状: [B, T, V]，target: [B, T]
+    """
+    def __init__(self, num_classes: int):
+        super().__init__(num_classes=num_classes)
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        # logits: [B, T, V] → [B*T, V]
+        # target: [B, T] → [B*T]
+        logits = logits.view(-1,logits.size(2))
+        target = target.view(-1)
+
+        return super().forward(logits, target)

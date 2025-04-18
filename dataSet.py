@@ -14,7 +14,7 @@ class MIDIDataset(Dataset):
         :param split_ratio: 训练、验证、测试划分比例
         :param mode: 当前使用的数据划分（train/eval/test）
         """
-        self.files = sorted(glob(os.path.join(dir_path, '*.pickle')))
+        self.files = sorted(glob(os.path.join(dir_path, "*.pickle")))
         total = len(self.files)
         train_end = int(total * split_ratio[0])
         eval_end = train_end + int(total * split_ratio[1])
@@ -37,23 +37,23 @@ class MIDIDataset(Dataset):
 
     def __repr__(self):
         return f'<MIDIDataset mode="{self.mode}", files={len(self.file_dict[self.mode])}>'
-    
+
     def _get_seq(self, fname, max_length=None):
         try:
-            with open(fname, 'rb') as f:
+            with open(fname, "rb") as f:
                 data = pickle.load(f)
         except Exception as e:
             print(f"[跳过] 无法读取 {fname}，原因：{e}")
-            return None    
+            return None
         if max_length is not None:
             if max_length <= len(data):
-                start = random.randrange(0,len(data) - max_length)
-                data = data[start:start + max_length]
+                start = random.randrange(0, len(data) - max_length)
+                data = data[start : start + max_length]
             else:
                 return None  # 数据太短，跳过
-        return data    
-    
-    def batch(self, batch_size, length, mode='train'):
+        return data
+
+    def batch(self, batch_size, length, mode="train"):
         batch_data = []
         while len(batch_data) < batch_size:
             fname = random.choice(self.file_dict[mode])
@@ -61,14 +61,14 @@ class MIDIDataset(Dataset):
             if seq is not None:
                 batch_data.append(seq)
 
-        return np.array(batch_data)    
+        return np.array(batch_data)
 
     def seq2seq_batch(self, batch_size, length):
         data = self.batch(batch_size, length * 2)
         return data[:, :length], data[:, length:]
 
-    def slide_seq2seq_batch(self, batch_size, length,mode='train'):
-        data = self.batch(batch_size, length + 1,mode=mode)
+    def slide_seq2seq_batch(self, batch_size, length, mode="train"):
+        data = self.batch(batch_size, length + 1, mode=mode)
         return data[:, :-1], data[:, 1:]
 
     def smallest_encoder_batch(self, batch_size, length):
